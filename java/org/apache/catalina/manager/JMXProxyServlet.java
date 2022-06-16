@@ -18,7 +18,10 @@ package org.apache.catalina.manager;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import javax.management.Attribute;
 import javax.management.InstanceNotFoundException;
@@ -32,6 +35,8 @@ import javax.management.OperationsException;
 import javax.management.ReflectionException;
 import javax.management.openmbean.CompositeData;
 
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -65,6 +70,12 @@ public class JMXProxyServlet extends HttpServlet {
     protected transient Registry registry;
 
 
+    // Namespace restriction for requests
+    protected List<Pattern> restrictGetPatterns;
+    protected List<Pattern> restrictSetPatterns;
+    protected List<Pattern> restrictInvokePatterns;
+    protected List<Pattern> restrictQueryPatterns;
+
     // --------------------------------------------------------- Public Methods
     /**
      * Initialize this servlet.
@@ -74,6 +85,13 @@ public class JMXProxyServlet extends HttpServlet {
         // Retrieve the MBean server
         registry = Registry.getRegistry(null, null);
         mBeanServer = Registry.getRegistry(null, null).getMBeanServer();
+
+        ServletConfig config = getServletConfig();
+        restrictGetPatterns = initPatterns(config, "allow-get-patterns");
+        restrictSetPatterns = initPatterns(config, "allow-set-patterns");
+        restrictInvokePatterns = initPatterns(config, "allow-invoke-patterns");
+        restrictQueryPatterns = initPatterns(config, "allow-query-patterns");
+
     }
 
 
@@ -103,6 +121,11 @@ public class JMXProxyServlet extends HttpServlet {
 
         String qry = request.getParameter("set");
         if (qry != null) {
+            if (!patternAllowed(restrictSetPatterns, qry)) {
+                response.sendError(403);
+                return;
+            }
+
             String name = request.getParameter("att");
             String val = request.getParameter("val");
 
@@ -111,12 +134,21 @@ public class JMXProxyServlet extends HttpServlet {
         }
         qry = request.getParameter("get");
         if (qry != null) {
+            if (!patternAllowed(restrictGetPatterns, qry)) {
+                response.sendError(403);
+                return;
+            }
             String name = request.getParameter("att");
             getAttribute(writer, qry, name, request.getParameter("key"));
             return;
         }
         qry = request.getParameter("invoke");
         if (qry != null) {
+            if (!patternAllowed(restrictInvokePatterns, qry)) {
+                response.sendError(403);
+                return;
+            }
+
             String opName = request.getParameter("op");
             String[] params = getInvokeParameters(request.getParameter("ps"));
             invokeOperation(writer, qry, opName, params);
@@ -127,6 +159,10 @@ public class JMXProxyServlet extends HttpServlet {
             qry = "*:*";
         }
 
+        if (!patternAllowed(restrictQueryPatterns, qry)) {
+            response.sendError(403);
+            return;
+        }
         listBeans(writer, qry);
     }
 
@@ -313,5 +349,38 @@ public class JMXProxyServlet extends HttpServlet {
             }
             writer.println(indent + strValue);
         }
+    }
+
+    private List<Pattern> initPatterns(ServletConfig config, String parameterName) {
+        String value = config.getInitParameter(parameterName);
+        List<Pattern> patterns = new ArrayList<>();
+
+        if (value != null) {
+            ServletContext sc = config.getServletContext();
+            value = sc.getInitParameter("JMXProxyServlet." + parameterName);
+        }
+
+        if (value != null) {
+            for (String pattern : value.split("[,\\s]")) {
+                pattern = pattern.trim();
+                if (pattern.length() > 0) {
+                    patterns.add(Pattern.compile(pattern));
+                }
+            }
+        }
+
+        return patterns;
+    }
+
+    private boolean patternAllowed(List<Pattern> patterns, String query) {
+        if (patterns.isEmpty()) {
+            return true;
+        }
+        for (Pattern pattern:patterns) {
+            if (pattern.matcher(query).matches()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

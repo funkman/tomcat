@@ -154,7 +154,7 @@ To maintain the CSRF protection:</p>
       roles to users that have the <strong>manager-gui</strong> role.</li>
 </ul>
 
-<p><strong>Note</strong> that JMX proxy interface is effectively low-level root-like
+<p><strong>WARNING</strong> the JMX proxy interface is effectively low-level root-like
 administrative interface of Tomcat. One can do a lot, if one knows
 what commands to call. You should be cautious when enabling the
 <strong>manager-jmx</strong> role.</p>
@@ -1196,9 +1196,58 @@ on each of deployed web applications will be available.</p>
 <source>http://localhost:8080/manager/jmxproxy/
  ?invoke=Catalina%3Atype%3DService&amp;op=findConnectors&amp;ps=</source>
   </subsection>
+
+
+
+  <subsection name="Increasing JMXProxy Security">
+    <p>Since JMXProxy allows you to do almost anything, you should have a desire to restrict what it may do.
+
+      With that, There are 4 additional servlet init-parameters you may set to restrict its operations.
+      These values are set in <code>web.xml</code>
+      <ul>
+        <li><code>allow-get-patterns</code>A regex which is whitespace or comma seperated of allows queries</li>
+        <li><code>allow-set-patterns</code>A regex which is whitespace or comma seperated of allows queries</li>
+        <li><code>allow-invoke-patterns</code>A regex which is whitespace or comma seperated of allows queries</li>
+        <li><code>allow-query-patterns</code>A regex which is whitespace or comma seperated of allows queries</li>
+      </ul>
+
+      You may set any of the above to literally "none" to effectively disable any matches from occuring. And a jmx query of "none"
+      would yield zero results (or error).
+    </p>
+
+    <p>Alternatively, the above values can be set in the appropriate <code>context.xml</code> as a
+      servlet context init parameter. In which case, the name should start with <code>JMXProxyServlet.</code>
+      For example:
+<source>
+  &lt;context-param&gt;
+    &lt;param-name&gt;JMXProxyServlet.allow-get-patterns&lt;/param-name&gt;
+    &lt;param-value&gt;java.lang:.+&lt;/param-value&gt;
+    &lt;description&gt;Restrict to only platform mx beans.&lt;/description&gt;
+  &lt;/context-param&gt;
+  &lt;context-param&gt;
+    &lt;param-name&gt;JMXProxyServlet.allow-set-patterns&lt;/param-name&gt;
+    &lt;param-value&gt;disable&lt;/param-value&gt;
+  &lt;/context-param&gt;
+  &lt;context-param&gt;
+    &lt;param-name&gt;JMXProxyServlet.allow-invloke-patterns&lt;/param-name&gt;
+    &lt;param-value&gt;java.lang:type=Memory&lt;/param-value&gt;
+    &lt;description&gt;Only allow garbage collection&lt;/description&gt;
+  &lt;/context-param&gt;
+  &lt;context-param&gt;
+    &lt;param-name&gt;JMXProxyServlet.allow-query-patterns&lt;/param-name&gt;
+    &lt;param-value&gt;disable&lt;/param-value&gt;
+  &lt;/context-param&gt;
+</source>
+
+      You may set any of the above to literally "disable" to effectively disable any matches from occuring. And a jmx query of "disable"
+      would yield zero results (or error).
+    </p>
+
+  </subsection>
 </section>
 
-<section name="Executing Manager Commands With Ant">
+
+  <section name="Executing Manager Commands With Ant">
 
 <p>In addition to the ability to execute Manager commands via HTTP requests,
 as documented above, Tomcat includes a convenient set of Task definitions

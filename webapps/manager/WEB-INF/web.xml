@@ -71,6 +71,39 @@
   <servlet>
     <servlet-name>JMXProxy</servlet-name>
     <servlet-class>org.apache.catalina.manager.JMXProxyServlet</servlet-class>
+<!--
+    <init-param>
+      <param-name>allow-get-patterns</param-name>
+      <param-value>
+        java.lang:type=Memory
+        java.lang:type=Threading
+      </param-value>
+    </init-param>
+    <init-param>
+      <param-name>allow-set-patterns</param-name>
+      <param-value>
+        java.lang:type=Memory
+      </param-value>
+    </init-param>
+    <init-param>
+      <param-name>allow-invoke-patterns</param-name>
+      <param-value>
+         java.lang:type=GarbageCollector (fix me)
+      </param-value>
+    </init-param>
+    <init-param>
+      <param-name>allow-query-patterns</param-name>
+      <param-value>
+         none
+      </param-value>
+    </init-param>
+
+    The param name can also be set as ServletContext init parameters
+    with a leading "JMXProxyServlet."
+
+    For example: "JMXProxyServlet.allow-query-patterns"
+
+-->
   </servlet>
 
   <!-- Define the Manager Servlet Mapping -->
